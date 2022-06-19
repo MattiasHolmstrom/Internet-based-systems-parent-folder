@@ -1,0 +1,124 @@
+<html>
+  <head>
+    <script src ="/jsencrypt.min.js" > </script>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Message room with Node.js</title>
+    <script src="https://code.jquery.com/jquery-3.1.1.js"></script>
+    <script type="text/javascript">
+var sentMessages = [];
+
+
+    sendMessage = function()
+    {
+      userName = document.getElementById('inputUserName').value;
+      text = document.getElementById('inputText').value;
+      crypt = new JSEncrypt();
+     // crypt.getreceiverPublicKey();
+      var receiverPublicKey = $('#receiverPublicKey').val();
+
+      crypt.setKey(receiverPublicKey);
+      encryptedText = crypt.encrypt(text);
+      sentMessages.push({encrypted:encryptedText, plain:text});
+
+      //var oldValue=$('#receiverPublicKey').val();
+     // $('#receiverPublicKey').val(receiverPublicKey);
+      // construct an object to be sent to the server
+
+      payload = {userName:userName, text:encryptedText};
+      // convert the object to JSON which is an object that
+      // the server recognizes.
+      if(text !== "" && userName !== ""){
+        addMessage(payload);
+      }
+      // make a POST request to /messages with
+      //$.post({type: 'POST', url:"/messages", data:payload, success:fillMessageTable});
+
+      $.post("/messages", payload,() => getAllMessages());
+    }
+
+    getAllMessages = function()
+    {
+      // do a get-request to the service, and when the result
+      // arrives, fill everything to the messages table.
+      $.ajax({type: 'GET', url:"/messages", success:fillMessageTable});
+    }
+
+    fillMessageTable = function(messages)
+    {
+      // Implement this function to add all messages from the server to the html
+      // Here  you should clear the messages table by assigning its 'innerHTML'
+      // property to empty (""), and
+      // You can use the addMessage function to do add new Messages to the table.
+       messagesTable = document.getElementById('messagesTable');
+       messagesTable.innerHTML = "";
+       for (i in messages)
+      {
+       addMessage(messages[i]);
+      }
+    }
+
+
+    addMessage = function(message){
+
+      crypt = new JSEncrypt();
+      var privateKey= $('#privateKey').val();
+      crypt.setKey(privateKey);
+      if(decrypted = crypt.decrypt(message.text)){
+        message.text = decrypted;
+      }
+      else
+      {
+        for(i in sentMessages)
+        {
+          if(sentMessages[i].encrypted == message.text){
+           message.text = sentMessages[i].plain;
+          }
+        }
+      }
+      messagesTable = document.getElementById('messagesTable');
+      messagesTable.innerHTML +=
+  "<tr><td>" + message.userName + ": " + message.text+"</td><td><input type='button' value=\"Remove\" onclick=\"removeMessage("+message.messageId+")\"></td></tr>";
+       // <td>"<button onclick= "deleteMessage();">delete</button> "</td></tr>";
+        //add delete button as HTML in a new td inside above tr (look at the Send button)
+
+    }
+    removeMessage = function(message){
+      $.ajax({type:'DELETE', url: "/messages/" + message, success: getAllMessages})
+
+   }
+   makeNewKeys = function (){
+     crypt = new JSEncrypt();
+     crypt.getKey();
+     pubKey = crypt.getPublicKey();
+     privKey = crypt.getPrivateKey();
+     
+     var oldValue=$('#publicKey').val();
+     $('#publicKey').val(pubKey); 
+
+     var oldValue=$('#privateKey').val();
+     $('#privateKey').val(privKey); 
+
+   } 
+
+  </script>
+  </head>
+  <body style="padding:20px;"onload="getAllMessages();">
+
+      <h1>Send a message</h1>
+      <input id="inputUserName" type="text" placeholder="username" style="width:100px"></input>
+      <input id="inputText" type="text" placeholder="message" style="width:250px"></input>
+      <button onclick="sendMessage();">Send</button>
+
+      <h1>Messages</h1>
+      <table id="messagesTable" style="width:400px; border:1px solid black">
+       
+
+      </table>
+Public key:<br/>
+<textarea id="publicKey" cols ="65" rows ="3"></textarea><br/>
+Private key:<br/>
+<textarea id="privateKey" cols ="65" rows ="3"></textarea><br/>
+<button onclick="makeNewKeys();">New Keys</button><br/>
+<textarea id="receiverPublicKey" cols ="65" rows ="3"></textarea><br/>
+  </body>
+</html>
